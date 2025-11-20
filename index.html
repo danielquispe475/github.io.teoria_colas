@@ -3,85 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulación - Teoría de Colas</title>
+    <title>Simulador de Teoría de Colas - UPEA</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Simulación - Teoría de Colas</h1>
-            <p class="subtitle">Investigación Operativa 2</p>
-            <p class="author">Ingeniería de Sistemas - Desarrollado por Daniel Quispe Gutierrez</p>
-            <div class="subject">Análisis de sistemas de colas con múltiples servidores</div>
-        </header>
-        
-       <!-- En la sección de controles, cambia los inputs: -->
-            <div class="control-group">
-                <label for="arrival-rate">Tasa de llegada (pacientes/hora)</label>
-                <input type="number" id="arrival-rate" placeholder="Introduzca la tasa de llegada" step="0.1" min="0.1">
+    <header>
+        <div class="container">
+            <h1>📊 Teoría de Colas</h1>
+            <div class="university-info">
+                <h2>🏛️ Universidad Pública de El Alto</h2>
+                <h3>⚙️ Ingeniería de Sistemas</h3>
+                <p class="author">👨‍💻 Daniel Quispe Gutierrez</p>
             </div>
-            
-            <div class="control-group">
-                <label for="service-rate">Tasa de servicio (pacientes/hora)</label>
-                <input type="number" id="service-rate" placeholder="Introduzca la tasa de servicio" step="0.1" min="0.1">
-            </div>
-            
-            <div class="control-group">
-                <label for="iterations">Cantidad de iteraciones</label>
-                <input type="number" id="iterations" placeholder="Introduzca las iteraciones" min="1" max="100">
-            </div>>
-            
-            <div class="control-group">
-                <label>Seleccione el tipo de simulación:</label>
-                <div class="server-options">
-                    <div class="server-option selected" data-servers="1">
-                        <div class="server-icon">🔵</div>
-                        <h3>1 Servidor</h3>
-                        <p>Sistema de colas con un solo servidor</p>
-                    </div>
-                    <div class="server-option" data-servers="2">
-                        <div class="server-icon">🔵🔵</div>
-                        <h3>2 Servidores</h3>
-                        <p>Sistema de colas con dos servidores</p>
-                    </div>
-                    <div class="server-option" data-servers="3">
-                        <div class="server-icon">🔵🔵🔵</div>
-                        <h3>3 Servidores</h3>
-                        <p>Sistema de colas con tres servidores</p>
-                    </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section id="input-section" class="card">
+            <h2>🔧 Configuración de la Simulación</h2>
+            <form id="simulation-form">
+                <div class="form-group">
+                    <label for="arrival-rate">📈 Tasa de Llegada (pacientes/hora):</label>
+                    <input type="number" id="arrival-rate" min="1" placeholder="Ej: 20" required>
                 </div>
-            </div>
+                
+                <div class="form-group">
+                    <label for="service-rate">⚡ Tasa de Servicio (pacientes/hora):</label>
+                    <input type="number" id="service-rate" min="1" placeholder="Ej: 40" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="iterations">🔄 Cantidad de Interacciones:</label>
+                    <input type="number" id="iterations" min="1" max="100" placeholder="Ej: 10" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="servers">👥 Número de Servidores:</label>
+                    <select id="servers">
+                        <option value="1">1 Servidor</option>
+                        <option value="2">2 Servidores</option>
+                    </select>
+                </div>
+                
+                <button type="submit" id="simulate-btn">🚀 Ejecutar Simulación</button>
+            </form>
+        </section>
+
+        <section id="results-section" class="card hidden">
+            <h2>📋 Resultados de la Simulación</h2>
+            <div id="table-container"></div>
             
-            <div class="action-buttons">
-                <button id="generate-btn" class="btn btn-generate">
-                    <span>🔄</span> Generar Simulación
-                </button>
-                <button id="download-btn" class="btn btn-download">
-                    <span>📥</span> Descargar CSV
-                </button>
+            <div id="statistics" class="statistics-grid">
+                <!-- Las estadísticas se generarán dinámicamente -->
             </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Derechos reservados a Daniel Quispe Gutierrez</p>
+            <p class="footer-contact">📧 Comunicarse a: 
+                <a href="mailto:quispegutierrezdaniel87@gmail.com" class="footer-link">
+                    quispegutierrezdaniel87@gmail.com
+                </a>
+            </p>
         </div>
-        
-        <div class="results">
-            <div class="table-header">
-                <h2>Resultados de la Simulación</h2>
-                <div id="server-count-display">1 Servidor</div>
-            </div>
-            <div class="table-container">
-                <table id="simulation-table">
-                    <!-- La tabla se generará dinámicamente con JavaScript -->
-                </table>
-            </div>
-        </div>
-        
-        <div class="stats" id="stats-container">
-            <!-- Las estadísticas se generarán dinámicamente con JavaScript -->
-        </div>
-        
-        <footer>
-            <p>Simulación de Teoría de Colas &copy; 2023 - Ingeniería de Sistemas - Daniel Quispe Gutierrez</p>
-        </footer>
-    </div>
+    </footer>
 
     <script src="script.js"></script>
 </body>
