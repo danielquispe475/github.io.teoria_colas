@@ -1,0 +1,257 @@
+/* style.css */
+:root {
+    --primary: #2c3e50;
+    --secondary: #3498db;
+    --accent: #e74c3c;
+    --light: #ecf0f1;
+    --dark: #2c3e50;
+    --success: #27ae60;
+    --warning: #f39c12;
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --border-radius: 8px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--dark);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Header */
+header {
+    background: linear-gradient(135deg, var(--primary), #34495e);
+    color: white;
+    padding: 2rem 0;
+    text-align: center;
+    box-shadow: var(--shadow);
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.university-info h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.9;
+}
+
+.university-info h3 {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.8;
+}
+
+.author {
+    font-size: 1.1rem;
+    font-weight: bold;
+    opacity: 0.9;
+}
+
+/* Main Content */
+main {
+    padding: 2rem 0;
+}
+
+.card {
+    background: white;
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow);
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+input, select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #ddd;
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: var(--secondary);
+}
+
+button {
+    background: linear-gradient(135deg, var(--secondary), #2980b9);
+    color: white;
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: var(--border-radius);
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+button:hover {
+    background: linear-gradient(135deg, #2980b9, var(--secondary));
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+}
+
+/* Table Styles */
+#table-container {
+    overflow-x: auto;
+    margin-bottom: 2rem;
+}
+
+.simulation-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+
+.simulation-table th {
+    background: linear-gradient(135deg, var(--primary), #34495e);
+    color: white;
+    padding: 0.75rem;
+    text-align: center;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+}
+
+.simulation-table td {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    text-align: center;
+}
+
+.simulation-table tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.simulation-table tr:hover {
+    background-color: #e3f2fd;
+}
+
+/* Statistics */
+.statistics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    text-align: center;
+    box-shadow: var(--shadow);
+}
+
+.stat-card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.9;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 0.5rem 0;
+}
+
+.stat-description {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+/* Footer */
+footer {
+    background: var(--primary);
+    color: white;
+    text-align: center;
+    padding: 2rem 0;
+    margin-top: 2rem;
+}
+
+.footer-contact {
+    margin-top: 1rem;
+}
+
+.footer-link {
+    color: var(--secondary);
+    text-decoration: none;
+}
+
+.footer-link:hover {
+    text-decoration: underline;
+}
+
+/* Utility Classes */
+.hidden {
+    display: none;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.mt-2 {
+    margin-top: 2rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        padding: 0 15px;
+    }
+    
+    header h1 {
+        font-size: 2rem;
+    }
+    
+    .card {
+        padding: 1.5rem;
+    }
+    
+    .simulation-table {
+        font-size: 0.8rem;
+    }
+    
+    .statistics-grid {
+        grid-template-columns: 1fr;
+    }
+}
