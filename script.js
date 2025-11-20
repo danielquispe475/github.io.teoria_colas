@@ -1,498 +1,357 @@
+// script.js
 document.addEventListener('DOMContentLoaded', function() {
-    // Variables globales
-    let selectedServers = 1;
-    let currentSimulationData = [];
-    let currentHeaders = [];
+    const simulationForm = document.getElementById('simulation-form');
+    const resultsSection = document.getElementById('results-section');
+    const tableContainer = document.getElementById('table-container');
+    const statisticsContainer = document.getElementById('statistics');
     
-    // Selección de servidores
-    const serverOptions = document.querySelectorAll('.server-option');
-    const serverCountDisplay = document.getElementById('server-count-display');
-    
-    serverOptions.forEach(option => {
-        option.addEventListener('click', function() {
-            serverOptions.forEach(opt => opt.classList.remove('selected'));
-            this.classList.add('selected');
-            selectedServers = parseInt(this.getAttribute('data-servers'));
-            serverCountDisplay.textContent = `${selectedServers} Servidor${selectedServers > 1 ? 'es' : ''}`;
-        });
-    });
-    
-    // Botón de generación
-    document.getElementById('generate-btn').addEventListener('click', generateSimulation);
-    
-    // Botón de descarga CSV - MODIFICADO
-    document.getElementById('download-btn').addEventListener('click', function() {
-        alert('Próximamente se desarrollará una hoja en blanco');
-    });
-    
-    // Generar simulación inicial
-    generateSimulation();
-    
-    function generateSimulation() {
+    simulationForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
         const arrivalRate = parseFloat(document.getElementById('arrival-rate').value);
         const serviceRate = parseFloat(document.getElementById('service-rate').value);
         const iterations = parseInt(document.getElementById('iterations').value);
+        const servers = parseInt(document.getElementById('servers').value);
         
-        if (selectedServers === 1) {
-            generateSingleServerSimulation(arrivalRate, serviceRate, iterations);
-        } else if (selectedServers === 2) {
-            generateTwoServerSimulation(arrivalRate, serviceRate, iterations);
+        if (isNaN(arrivalRate) || isNaN(serviceRate) || isNaN(iterations) || 
+            arrivalRate <= 0 || serviceRate <= 0 || iterations <= 0) {
+            alert('❌ Por favor, ingrese valores válidos mayores a cero.');
+            return;
+        }
+        
+        const simulationData = runSimulation(arrivalRate, serviceRate, iterations, servers);
+        displayResults(simulationData, servers);
+        resultsSection.classList.remove('hidden');
+        resultsSection.scrollIntoView({ behavior: 'smooth' });
+    });
+    
+    function runSimulation(arrivalRate, serviceRate, iterations, servers) {
+        const data = [];
+        
+        if (servers === 1) {
+            // COHERENTE con Hoja1_replanteada_final.xlsx
+            let previousFinishTime = 0; // H10, H11, etc.
+            
+            for (let i = 0; i < iterations; i++) {
+                // B10, B11, etc. =RAND()
+                const randomArrival = Math.random();
+                
+                // C10, C11, etc. =-LN(1-B10)/D$3*60
+                const interarrivalTime = -Math.log(1 - randomArrival) / arrivalRate * 60;
+                
+                // D10, D11, etc. (D10=C10, D11=D10+C11)
+                const arrivalTime = i === 0 ? interarrivalTime : data[i-1].tiempoLlegada + interarrivalTime;
+                
+                // E10, E11, etc. =MAX(D11,H10)
+                const serviceStartTime = Math.max(arrivalTime, previousFinishTime);
+                
+                // F10, F11, etc. =E10-D10
+                const waitingTime = serviceStartTime - arrivalTime;
+                
+                // G10, G11, etc. =-LN(1-RAND())/D$4*60
+                const serviceTime = -Math.log(1 - Math.random()) / serviceRate * 60;
+                
+                // H10, H11, etc. =D10+G10
+                const finishTime = serviceStartTime + serviceTime;
+                
+                // I10, I11, etc. =F10+G10
+                const systemTime = waitingTime + serviceTime;
+                
+                // J10, J11, etc. =E11-H10
+                const idleTime = i === 0 ? serviceStartTime : serviceStartTime - previousFinishTime;
+                
+                previousFinishTime = finishTime;
+                
+                data.push({
+                    numeracion: i + 1,
+                    numeroAleatorio: randomArrival,
+                    tiempoEntreLlegadas: parseFloat(interarrivalTime.toFixed(4)),
+                    tiempoLlegada: parseFloat(arrivalTime.toFixed(4)),
+                    tiempoInicioServicio: parseFloat(serviceStartTime.toFixed(4)),
+                    tiempoEspera: parseFloat(Math.max(0, waitingTime).toFixed(4)),
+                    tiempoServicio: parseFloat(serviceTime.toFixed(4)),
+                    tiempoFinalizacion: parseFloat(finishTime.toFixed(4)),
+                    tiempoSistema: parseFloat(systemTime.toFixed(4)),
+                    tiempoOcio: parseFloat(Math.max(0, idleTime).toFixed(4))
+                });
+            }
         } else {
-            generateThreeServerSimulation(arrivalRate, serviceRate, iterations);
-        }
-        
-        // Añadir animación
-        const statsContainer = document.getElementById('stats-container');
-        statsContainer.classList.remove('fade-in');
-        void statsContainer.offsetWidth;
-        statsContainer.classList.add('fade-in');
-    }
-    
-    function generateSingleServerSimulation(arrivalRate, serviceRate, iterations) {
-        const table = document.getElementById('simulation-table');
-        table.innerHTML = '';
-        currentSimulationData = [];
-        currentHeaders = [
-            'Numeración', 'Número aleatorio', 'Tiempo entre llegadas (min)', 
-            'Tiempo de llegada', 'Tiempo de inicio servicio', 'Tiempo de espera',
-            'Número aleatorio servicio', 'Tiempo de servicio (min)', 
-            'Tiempo de finalización de servicio', 'Tiempo en el sistema', 'Tiempo ocio'
-        ];
-        
-        // Crear encabezado
-        const headerRow = document.createElement('tr');
-        currentHeaders.forEach(header => {
-            const th = document.createElement('th');
-            th.textContent = header;
-            th.className = 'header-cell';
-            headerRow.appendChild(th);
-        });
-        table.appendChild(headerRow);
-        
-        // Variables para cálculos
-        let arrivalTimes = [0];
-        let serviceStartTimes = [0];
-        let serviceEndTimes = [0];
-        let serviceTimes = [0];
-        let waitTimes = [0];
-        let idleTimes = [0];
-        
-        // Primera fila (cliente 1)
-        const randArrival1 = Math.random();
-        const interarrivalTime1 = Math.max(0, -Math.log(1 - randArrival1) / arrivalRate * 60);
-        arrivalTimes[0] = interarrivalTime1;
-        
-        const randService1 = Math.random();
-        serviceTimes[0] = Math.max(0, -Math.log(1 - randService1) / serviceRate * 60);
-        serviceStartTimes[0] = arrivalTimes[0];
-        serviceEndTimes[0] = serviceStartTimes[0] + serviceTimes[0];
-        waitTimes[0] = 0;
-        idleTimes[0] = arrivalTimes[0];
-        
-        // Fila 1
-        const row1 = document.createElement('tr');
-        row1.innerHTML = `
-            <td>1</td>
-            <td class="formula-cell">${randArrival1.toFixed(4)}</td>
-            <td class="time-cell">${interarrivalTime1.toFixed(2)}</td>
-            <td class="time-cell">${arrivalTimes[0].toFixed(2)}</td>
-            <td class="time-cell">${serviceStartTimes[0].toFixed(2)}</td>
-            <td class="wait-cell">${waitTimes[0].toFixed(2)}</td>
-            <td class="formula-cell">${randService1.toFixed(4)}</td>
-            <td class="service-cell">${serviceTimes[0].toFixed(2)}</td>
-            <td class="time-cell">${serviceEndTimes[0].toFixed(2)}</td>
-            <td class="system-cell">${(waitTimes[0] + serviceTimes[0]).toFixed(2)}</td>
-            <td class="idle-cell">${idleTimes[0].toFixed(2)}</td>
-        `;
-        table.appendChild(row1);
-        
-        // Filas siguientes
-        for (let i = 2; i <= iterations; i++) {
-            const randArrival = Math.random();
-            const interarrivalTime = Math.max(0, -Math.log(1 - randArrival) / arrivalRate * 60);
-            const arrivalTime = arrivalTimes[i-2] + interarrivalTime;
+            // COHERENTE con Hoja2_full40.xlsx
+            let finishTime1 = 0; // K9
+            let finishTime2 = 0; // L9
             
-            // Determinar inicio de servicio (máximo entre llegada y fin servicio anterior)
-            const serviceStartTime = Math.max(arrivalTime, serviceEndTimes[i-2]);
-            const waitTime = Math.max(0, serviceStartTime - arrivalTime);
-            
-            const randService = Math.random();
-            const serviceTime = Math.max(0, -Math.log(1 - randService) / serviceRate * 60);
-            const serviceEndTime = serviceStartTime + serviceTime;
-            
-            // Tiempo de ocio (solo si el servidor está libre antes de que llegue el cliente)
-            const idleTime = Math.max(0, arrivalTime - serviceEndTimes[i-2]);
-            
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${i}</td>
-                <td class="formula-cell">${randArrival.toFixed(4)}</td>
-                <td class="time-cell">${interarrivalTime.toFixed(2)}</td>
-                <td class="time-cell">${arrivalTime.toFixed(2)}</td>
-                <td class="time-cell">${serviceStartTime.toFixed(2)}</td>
-                <td class="wait-cell">${waitTime.toFixed(2)}</td>
-                <td class="formula-cell">${randService.toFixed(4)}</td>
-                <td class="service-cell">${serviceTime.toFixed(2)}</td>
-                <td class="time-cell">${serviceEndTime.toFixed(2)}</td>
-                <td class="system-cell">${(waitTime + serviceTime).toFixed(2)}</td>
-                <td class="idle-cell">${idleTime.toFixed(2)}</td>
-            `;
-            
-            table.appendChild(row);
-            
-            // Actualizar arrays para siguientes cálculos
-            arrivalTimes.push(arrivalTime);
-            serviceStartTimes.push(serviceStartTime);
-            serviceEndTimes.push(serviceEndTime);
-            serviceTimes.push(serviceTime);
-            waitTimes.push(waitTime);
-            idleTimes.push(idleTime);
-        }
-        
-        // Generar estadísticas
-        generateStats(arrivalRate, serviceRate, iterations, 1);
-    }
-    
-    function generateTwoServerSimulation(arrivalRate, serviceRate, iterations) {
-        const table = document.getElementById('simulation-table');
-        table.innerHTML = '';
-        currentSimulationData = [];
-        currentHeaders = [
-            'Numeración', 'Número aleatorio', 'Tiempo entre llegadas (min)', 
-            'Tiempo de llegada', 'Tiempo inicio servicio 1', 'Tiempo inicio servicio 2',
-            'Tiempo de espera 1', 'Tiempo de espera 2', 'Tiempo servicio 1 (min)', 
-            'Tiempo servicio 2 (min)', 'Tiempo finalización servicio 1', 
-            'Tiempo finalización servicio 2', 'Tiempo en el sistema', 
-            'Tiempo ocio 1', 'Tiempo ocio 2'
-        ];
-        
-        // Crear encabezado
-        const headerRow = document.createElement('tr');
-        currentHeaders.forEach(header => {
-            const th = document.createElement('th');
-            th.textContent = header;
-            th.className = 'header-cell';
-            headerRow.appendChild(th);
-        });
-        table.appendChild(headerRow);
-        
-        // Arrays para almacenar datos de cada servidor
-        let serviceEndTime1 = 0;
-        let serviceEndTime2 = 0;
-        
-        // Primera fila (cliente 1) - Siempre va al servidor 1
-        const randArrival1 = Math.random();
-        const interarrivalTime1 = Math.max(0, -Math.log(1 - randArrival1) / arrivalRate * 60);
-        const arrivalTime1 = interarrivalTime1;
-        
-        const serviceStartTime1 = arrivalTime1;
-        const idleTime1 = arrivalTime1;
-        
-        const randService1 = Math.random();
-        const serviceTime1 = Math.max(0, -Math.log(1 - randService1) / serviceRate * 60);
-        serviceEndTime1 = serviceStartTime1 + serviceTime1;
-        
-        const waitTime1 = 0;
-        const waitTime2 = 0;
-        
-        // Fila 1
-        const row1 = document.createElement('tr');
-        row1.innerHTML = `
-            <td>1</td>
-            <td class="formula-cell">${randArrival1.toFixed(4)}</td>
-            <td class="time-cell">${interarrivalTime1.toFixed(2)}</td>
-            <td class="time-cell">${arrivalTime1.toFixed(2)}</td>
-            <td class="time-cell">${serviceStartTime1.toFixed(2)}</td>
-            <td class="time-cell">0.00</td>
-            <td class="wait-cell">${waitTime1.toFixed(2)}</td>
-            <td class="wait-cell">${waitTime2.toFixed(2)}</td>
-            <td class="service-cell">${serviceTime1.toFixed(2)}</td>
-            <td class="service-cell">0.00</td>
-            <td class="time-cell">${serviceEndTime1.toFixed(2)}</td>
-            <td class="time-cell">0.00</td>
-            <td class="system-cell">${(waitTime1 + serviceTime1).toFixed(2)}</td>
-            <td class="idle-cell">${idleTime1.toFixed(2)}</td>
-            <td class="idle-cell">0.00</td>
-        `;
-        table.appendChild(row1);
-        
-        // Filas siguientes
-        for (let i = 2; i <= iterations; i++) {
-            const randArrival = Math.random();
-            const interarrivalTime = Math.max(0, -Math.log(1 - randArrival) / arrivalRate * 60);
-            const arrivalTime = (i === 2 ? arrivalTime1 : parseFloat(document.querySelector(`#simulation-table tr:nth-child(${i-1}) td:nth-child(4)`).textContent)) + interarrivalTime;
-            
-            let serviceStartTime1_current = 0;
-            let serviceStartTime2_current = 0;
-            let serviceTime1_current = 0;
-            let serviceTime2_current = 0;
-            let serviceEndTime1_current = serviceEndTime1;
-            let serviceEndTime2_current = serviceEndTime2;
-            let waitTime1_current = 0;
-            let waitTime2_current = 0;
-            let idleTime1_current = 0;
-            let idleTime2_current = 0;
-            
-            // Determinar qué servidor atiende (el que termine primero)
-            if (serviceEndTime1 <= serviceEndTime2) {
-                // Servidor 1 atiende
-                serviceStartTime1_current = Math.max(arrivalTime, serviceEndTime1);
-                waitTime1_current = Math.max(0, serviceStartTime1_current - arrivalTime);
+            for (let i = 0; i < iterations; i++) {
+                // B9, B10, etc. =RAND()
+                const randomArrival = Math.random();
                 
-                const randService1 = Math.random();
-                serviceTime1_current = Math.max(0, -Math.log(1 - randService1) / serviceRate * 60);
-                serviceEndTime1_current = serviceStartTime1_current + serviceTime1_current;
+                // C9, C10, etc. =-LN(1-B10)/C$1*60
+                const interarrivalTime = -Math.log(1 - randomArrival) / arrivalRate * 60;
                 
-                idleTime1_current = Math.max(0, serviceStartTime1_current - serviceEndTime1);
+                // D9, D10, etc. (D9=C9, D10=D9+C10)
+                const arrivalTime = i === 0 ? interarrivalTime : data[i-1].tiempoLlegada + interarrivalTime;
                 
-                // Servidor 2 no atiende
-                serviceStartTime2_current = 0;
-                serviceTime2_current = 0;
-                serviceEndTime2_current = serviceEndTime2;
-                waitTime2_current = 0;
-                idleTime2_current = 0;
+                // E10, E11, etc. =IF(MIN(K9:L9)=K9,MAX(D10,K9),0)
+                let serviceStart1 = 0;
+                if (i === 0) {
+                    serviceStart1 = arrivalTime; // Primer cliente va al servidor 1
+                } else {
+                    const minFinish = Math.min(finishTime1, finishTime2);
+                    if (minFinish === finishTime1) {
+                        serviceStart1 = Math.max(arrivalTime, finishTime1);
+                    }
+                }
+                
+                // F10, F11, etc. =IF(MIN(K9:L9)=L9,MAX(L9,D10),0)
+                let serviceStart2 = 0;
+                if (i > 0) {
+                    const minFinish = Math.min(finishTime1, finishTime2);
+                    if (minFinish === finishTime2) {
+                        serviceStart2 = Math.max(arrivalTime, finishTime2);
+                    }
+                }
+                
+                // G10, G11, etc. =IF(E10>0,E10-D$9,0)
+                const waitingTime1 = serviceStart1 > 0 ? serviceStart1 - arrivalTime : 0;
+                
+                // H10, H11, etc. =IF(F10>0,F10-E$9,0)
+                const waitingTime2 = serviceStart2 > 0 ? serviceStart2 - arrivalTime : 0;
+                
+                // I10, I11, etc. =IF(E10>0,-LN(1-RAND())/C$4*60,0)
+                const serviceTime1 = serviceStart1 > 0 ? -Math.log(1 - Math.random()) / serviceRate * 60 : 0;
+                
+                // J10, J11, etc. =IF(F10>0,-LN(1-RAND())/C$4*60,0)
+                const serviceTime2 = serviceStart2 > 0 ? -Math.log(1 - Math.random()) / serviceRate * 60 : 0;
+                
+                // K10, K11, etc. =IF(E10>0,E10+I10,K9)
+                const newFinishTime1 = serviceStart1 > 0 ? serviceStart1 + serviceTime1 : (i > 0 ? data[i-1].tiempoFinalizacion1 : 0);
+                
+                // L10, L11, etc. =IF(F10>0,F10+J10,L9)
+                const newFinishTime2 = serviceStart2 > 0 ? serviceStart2 + serviceTime2 : (i > 0 ? data[i-1].tiempoFinalizacion2 : 0);
                 
                 // Actualizar para siguiente iteración
-                serviceEndTime1 = serviceEndTime1_current;
-            } else {
-                // Servidor 2 atiende
-                serviceStartTime2_current = Math.max(arrivalTime, serviceEndTime2);
-                waitTime2_current = Math.max(0, serviceStartTime2_current - arrivalTime);
+                if (serviceStart1 > 0) finishTime1 = newFinishTime1;
+                if (serviceStart2 > 0) finishTime2 = newFinishTime2;
                 
-                const randService2 = Math.random();
-                serviceTime2_current = Math.max(0, -Math.log(1 - randService2) / serviceRate * 60);
-                serviceEndTime2_current = serviceStartTime2_current + serviceTime2_current;
+                // M10, M11, etc. =G10+H10+I10+J10
+                const systemTime = waitingTime1 + waitingTime2 + serviceTime1 + serviceTime2;
                 
-                idleTime2_current = Math.max(0, serviceStartTime2_current - serviceEndTime2);
+                // N10, N11, etc. =IF(E10>0,E10-I9,0)
+                let idleTime1 = 0;
+                if (i === 0) {
+                    idleTime1 = serviceStart1;
+                } else if (serviceStart1 > 0) {
+                    idleTime1 = serviceStart1 - (data[i-1].tiempoFinalizacion1 || 0);
+                }
                 
-                // Servidor 1 no atiende
-                serviceStartTime1_current = 0;
-                serviceTime1_current = 0;
-                serviceEndTime1_current = serviceEndTime1;
-                waitTime1_current = 0;
-                idleTime1_current = 0;
+                // O10, O11, etc. =IF(F10>0,F10-J9,0)
+                let idleTime2 = 0;
+                if (serviceStart2 > 0 && i > 0) {
+                    idleTime2 = serviceStart2 - (data[i-1].tiempoFinalizacion2 || 0);
+                }
                 
-                // Actualizar para siguiente iteración
-                serviceEndTime2 = serviceEndTime2_current;
+                data.push({
+                    numeracion: i + 1,
+                    numeroAleatorio: randomArrival,
+                    tiempoEntreLlegadas: parseFloat(interarrivalTime.toFixed(4)),
+                    tiempoLlegada: parseFloat(arrivalTime.toFixed(4)),
+                    tiempoInicioServicio1: parseFloat(serviceStart1.toFixed(4)),
+                    tiempoInicioServicio2: parseFloat(serviceStart2.toFixed(4)),
+                    tiempoEspera1: parseFloat(Math.max(0, waitingTime1).toFixed(4)),
+                    tiempoEspera2: parseFloat(Math.max(0, waitingTime2).toFixed(4)),
+                    tiempoServicio1: parseFloat(serviceTime1.toFixed(4)),
+                    tiempoServicio2: parseFloat(serviceTime2.toFixed(4)),
+                    tiempoFinalizacion1: parseFloat(newFinishTime1.toFixed(4)),
+                    tiempoFinalizacion2: parseFloat(newFinishTime2.toFixed(4)),
+                    tiempoSistema: parseFloat(systemTime.toFixed(4)),
+                    tiempoOcio1: parseFloat(Math.max(0, idleTime1).toFixed(4)),
+                    tiempoOcio2: parseFloat(Math.max(0, idleTime2).toFixed(4))
+                });
             }
-            
-            const systemTime = (waitTime1_current + serviceTime1_current + waitTime2_current + serviceTime2_current);
-            
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${i}</td>
-                <td class="formula-cell">${randArrival.toFixed(4)}</td>
-                <td class="time-cell">${interarrivalTime.toFixed(2)}</td>
-                <td class="time-cell">${arrivalTime.toFixed(2)}</td>
-                <td class="time-cell">${serviceStartTime1_current.toFixed(2)}</td>
-                <td class="time-cell">${serviceStartTime2_current.toFixed(2)}</td>
-                <td class="wait-cell">${waitTime1_current.toFixed(2)}</td>
-                <td class="wait-cell">${waitTime2_current.toFixed(2)}</td>
-                <td class="service-cell">${serviceTime1_current.toFixed(2)}</td>
-                <td class="service-cell">${serviceTime2_current.toFixed(2)}</td>
-                <td class="time-cell">${serviceEndTime1_current.toFixed(2)}</td>
-                <td class="time-cell">${serviceEndTime2_current.toFixed(2)}</td>
-                <td class="system-cell">${systemTime.toFixed(2)}</td>
-                <td class="idle-cell">${idleTime1_current.toFixed(2)}</td>
-                <td class="idle-cell">${idleTime2_current.toFixed(2)}</td>
-            `;
-            
-            table.appendChild(row);
         }
         
-        // Generar estadísticas
-        generateStats(arrivalRate, serviceRate, iterations, 2);
+        return data;
     }
     
-    function generateThreeServerSimulation(arrivalRate, serviceRate, iterations) {
-        const table = document.getElementById('simulation-table');
-        table.innerHTML = '';
-        currentSimulationData = [];
-        currentHeaders = [
-            'Numeración', 'Número aleatorio', 'Tiempo entre llegadas (min)', 
-            'Tiempo de llegada', 'Tiempo inicio servicio 1', 'Tiempo inicio servicio 2',
-            'Tiempo inicio servicio 3', 'Tiempo de espera 1', 'Tiempo de espera 2',
-            'Tiempo de espera 3', 'Tiempo servicio 1 (min)', 'Tiempo servicio 2 (min)',
-            'Tiempo servicio 3 (min)', 'Tiempo finalización servicio 1',
-            'Tiempo finalización servicio 2', 'Tiempo finalización servicio 3',
-            'Tiempo en el sistema', 'Tiempo ocio 1', 'Tiempo ocio 2', 'Tiempo ocio 3'
-        ];
+    function displayResults(data, servers) {
+        let tableHTML = `<table class="simulation-table">`;
         
-        // Crear encabezado
-        const headerRow = document.createElement('tr');
-        currentHeaders.forEach(header => {
-            const th = document.createElement('th');
-            th.textContent = header;
-            th.className = 'header-cell';
-            headerRow.appendChild(th);
-        });
-        table.appendChild(headerRow);
-        
-        // Arrays para almacenar datos de cada servidor
-        let serviceEndTime1 = 0;
-        let serviceEndTime2 = 0;
-        let serviceEndTime3 = 0;
-        
-        // Primera fila (cliente 1) - Siempre va al servidor 1
-        const randArrival1 = Math.random();
-        const interarrivalTime1 = Math.max(0, -Math.log(1 - randArrival1) / arrivalRate * 60);
-        const arrivalTime1 = interarrivalTime1;
-        
-        const serviceStartTime1 = arrivalTime1;
-        const idleTime1 = arrivalTime1;
-        
-        const randService1 = Math.random();
-        const serviceTime1 = Math.max(0, -Math.log(1 - randService1) / serviceRate * 60);
-        serviceEndTime1 = serviceStartTime1 + serviceTime1;
-        
-        // Fila 1
-        const row1 = document.createElement('tr');
-        row1.innerHTML = `
-            <td>1</td>
-            <td class="formula-cell">${randArrival1.toFixed(4)}</td>
-            <td class="time-cell">${interarrivalTime1.toFixed(2)}</td>
-            <td class="time-cell">${arrivalTime1.toFixed(2)}</td>
-            <td class="time-cell">${serviceStartTime1.toFixed(2)}</td>
-            <td class="time-cell">0.00</td>
-            <td class="time-cell">0.00</td>
-            <td class="wait-cell">0.00</td>
-            <td class="wait-cell">0.00</td>
-            <td class="wait-cell">0.00</td>
-            <td class="service-cell">${serviceTime1.toFixed(2)}</td>
-            <td class="service-cell">0.00</td>
-            <td class="service-cell">0.00</td>
-            <td class="time-cell">${serviceEndTime1.toFixed(2)}</td>
-            <td class="time-cell">0.00</td>
-            <td class="time-cell">0.00</td>
-            <td class="system-cell">${serviceTime1.toFixed(2)}</td>
-            <td class="idle-cell">${idleTime1.toFixed(2)}</td>
-            <td class="idle-cell">0.00</td>
-            <td class="idle-cell">0.00</td>
-        `;
-        table.appendChild(row1);
-        
-        // Filas siguientes
-        for (let i = 2; i <= iterations; i++) {
-            const randArrival = Math.random();
-            const interarrivalTime = Math.max(0, -Math.log(1 - randArrival) / arrivalRate * 60);
-            const arrivalTime = (i === 2 ? arrivalTime1 : parseFloat(document.querySelector(`#simulation-table tr:nth-child(${i-1}) td:nth-child(4)`).textContent)) + interarrivalTime;
-            
-            // Determinar qué servidor atiende (el que termine primero)
-            const endTimes = [serviceEndTime1, serviceEndTime2, serviceEndTime3];
-            const minEndTime = Math.min(...endTimes);
-            const serverToUse = endTimes.indexOf(minEndTime) + 1;
-            
-            let serviceStartTime1_current = 0;
-            let serviceStartTime2_current = 0;
-            let serviceStartTime3_current = 0;
-            let serviceTime1_current = 0;
-            let serviceTime2_current = 0;
-            let serviceTime3_current = 0;
-            let serviceEndTime1_current = serviceEndTime1;
-            let serviceEndTime2_current = serviceEndTime2;
-            let serviceEndTime3_current = serviceEndTime3;
-            let waitTime1_current = 0;
-            let waitTime2_current = 0;
-            let waitTime3_current = 0;
-            let idleTime1_current = 0;
-            let idleTime2_current = 0;
-            let idleTime3_current = 0;
-            
-            if (serverToUse === 1) {
-                serviceStartTime1_current = Math.max(arrivalTime, serviceEndTime1);
-                waitTime1_current = Math.max(0, serviceStartTime1_current - arrivalTime);
-                
-                const randService = Math.random();
-                serviceTime1_current = Math.max(0, -Math.log(1 - randService) / serviceRate * 60);
-                serviceEndTime1_current = serviceStartTime1_current + serviceTime1_current;
-                idleTime1_current = Math.max(0, serviceStartTime1_current - serviceEndTime1);
-                
-                serviceEndTime1 = serviceEndTime1_current;
-            } else if (serverToUse === 2) {
-                serviceStartTime2_current = Math.max(arrivalTime, serviceEndTime2);
-                waitTime2_current = Math.max(0, serviceStartTime2_current - arrivalTime);
-                
-                const randService = Math.random();
-                serviceTime2_current = Math.max(0, -Math.log(1 - randService) / serviceRate * 60);
-                serviceEndTime2_current = serviceStartTime2_current + serviceTime2_current;
-                idleTime2_current = Math.max(0, serviceStartTime2_current - serviceEndTime2);
-                
-                serviceEndTime2 = serviceEndTime2_current;
-            } else {
-                serviceStartTime3_current = Math.max(arrivalTime, serviceEndTime3);
-                waitTime3_current = Math.max(0, serviceStartTime3_current - arrivalTime);
-                
-                const randService = Math.random();
-                serviceTime3_current = Math.max(0, -Math.log(1 - randService) / serviceRate * 60);
-                serviceEndTime3_current = serviceStartTime3_current + serviceTime3_current;
-                idleTime3_current = Math.max(0, serviceStartTime3_current - serviceEndTime3);
-                
-                serviceEndTime3 = serviceEndTime3_current;
-            }
-            
-            const systemTime = waitTime1_current + serviceTime1_current + 
-                             waitTime2_current + serviceTime2_current + 
-                             waitTime3_current + serviceTime3_current;
-            
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${i}</td>
-                <td class="formula-cell">${randArrival.toFixed(4)}</td>
-                <td class="time-cell">${interarrivalTime.toFixed(2)}</td>
-                <td class="time-cell">${arrivalTime.toFixed(2)}</td>
-                <td class="time-cell">${serviceStartTime1_current.toFixed(2)}</td>
-                <td class="time-cell">${serviceStartTime2_current.toFixed(2)}</td>
-                <td class="time-cell">${serviceStartTime3_current.toFixed(2)}</td>
-                <td class="wait-cell">${waitTime1_current.toFixed(2)}</td>
-                <td class="wait-cell">${waitTime2_current.toFixed(2)}</td>
-                <td class="wait-cell">${waitTime3_current.toFixed(2)}</td>
-                <td class="service-cell">${serviceTime1_current.toFixed(2)}</td>
-                <td class="service-cell">${serviceTime2_current.toFixed(2)}</td>
-                <td class="service-cell">${serviceTime3_current.toFixed(2)}</td>
-                <td class="time-cell">${serviceEndTime1_current.toFixed(2)}</td>
-                <td class="time-cell">${serviceEndTime2_current.toFixed(2)}</td>
-                <td class="time-cell">${serviceEndTime3_current.toFixed(2)}</td>
-                <td class="system-cell">${systemTime.toFixed(2)}</td>
-                <td class="idle-cell">${idleTime1_current.toFixed(2)}</td>
-                <td class="idle-cell">${idleTime2_current.toFixed(2)}</td>
-                <td class="idle-cell">${idleTime3_current.toFixed(2)}</td>
+        if (servers === 1) {
+            tableHTML += `
+                <thead>
+                    <tr>
+                        <th>Numeración</th>
+                        <th>N° Aleatorio</th>
+                        <th>Tiempo Entre Llegadas (min)</th>
+                        <th>Tiempo de Llegada</th>
+                        <th>Tiempo Inicio Servicio</th>
+                        <th>Tiempo de Espera</th>
+                        <th>Tiempo de Servicio (min)</th>
+                        <th>Tiempo Finalización Servicio</th>
+                        <th>Tiempo en el Sistema</th>
+                        <th>Tiempo Ocio</th>
+                    </tr>
+                </thead>
+                <tbody>
             `;
             
-            table.appendChild(row);
+            data.forEach(row => {
+                tableHTML += `
+                    <tr>
+                        <td>${row.numeracion}</td>
+                        <td>${row.numeroAleatorio.toFixed(4)}</td>
+                        <td>${row.tiempoEntreLlegadas}</td>
+                        <td>${row.tiempoLlegada}</td>
+                        <td>${row.tiempoInicioServicio}</td>
+                        <td>${row.tiempoEspera}</td>
+                        <td>${row.tiempoServicio}</td>
+                        <td>${row.tiempoFinalizacion}</td>
+                        <td>${row.tiempoSistema}</td>
+                        <td>${row.tiempoOcio}</td>
+                    </tr>
+                `;
+            });
+        } else {
+            tableHTML += `
+                <thead>
+                    <tr>
+                        <th>Numeración</th>
+                        <th>N° Aleatorio</th>
+                        <th>Tiempo Entre Llegadas (min)</th>
+                        <th>Tiempo de Llegada</th>
+                        <th>Tiempo Inicio Servicio 1</th>
+                        <th>Tiempo Inicio Servicio 2</th>
+                        <th>Tiempo de Espera 1</th>
+                        <th>Tiempo de Espera 2</th>
+                        <th>Tiempo de Servicio 1 (min)</th>
+                        <th>Tiempo de Servicio 2 (min)</th>
+                        <th>Tiempo Finalización Servicio 1</th>
+                        <th>Tiempo Finalización Servicio 2</th>
+                        <th>Tiempo en el Sistema</th>
+                        <th>Tiempo Ocio 1</th>
+                        <th>Tiempo Ocio 2</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            data.forEach(row => {
+                tableHTML += `
+                    <tr>
+                        <td>${row.numeracion}</td>
+                        <td>${row.numeroAleatorio.toFixed(4)}</td>
+                        <td>${row.tiempoEntreLlegadas}</td>
+                        <td>${row.tiempoLlegada}</td>
+                        <td>${row.tiempoInicioServicio1}</td>
+                        <td>${row.tiempoInicioServicio2}</td>
+                        <td>${row.tiempoEspera1}</td>
+                        <td>${row.tiempoEspera2}</td>
+                        <td>${row.tiempoServicio1}</td>
+                        <td>${row.tiempoServicio2}</td>
+                        <td>${row.tiempoFinalizacion1}</td>
+                        <td>${row.tiempoFinalizacion2}</td>
+                        <td>${row.tiempoSistema}</td>
+                        <td>${row.tiempoOcio1}</td>
+                        <td>${row.tiempoOcio2}</td>
+                    </tr>
+                `;
+            });
         }
         
-        // Generar estadísticas
-        generateStats(arrivalRate, serviceRate, iterations, 3);
+        tableHTML += `</tbody></table>`;
+        tableContainer.innerHTML = tableHTML;
+        displayStatistics(data, servers);
     }
     
-    function generateStats(arrivalRate, serviceRate, iterations, servers) {
-        const statsContainer = document.getElementById('stats-container');
-        statsContainer.innerHTML = '';
+    function displayStatistics(data, servers) {
+        let statsHTML = '';
         
-        // Calcular estadísticas básicas
-        const utilization = Math.max(0, Math.min(100, (arrivalRate / (serviceRate * servers)) * 100));
-        const avgWaitTime = Math.max(0, arrivalRate / (serviceRate * (serviceRate * servers - arrivalRate)) * 60);
-        const avgSystemTime = Math.max(0, 1 / (serviceRate * servers - arrivalRate) * 60);
-        const avgQueueLength = Math.max(0, (arrivalRate * arrivalRate) / (serviceRate * (serviceRate * servers - arrivalRate)));
-        
-        const stats = [
-            { title: 'Tasa de Llegada', value: `${arrivalRate} pacientes/hora` },
-            { title: 'Tasa de Servicio', value: `${serviceRate} pacientes/hora` },
-            { title: 'Número de Servidores', value: servers },
-            { title: 'Utilización del Sistema', value: `${utilization.toFixed(2)}%` },
-            { title: 'Tiempo Promedio de Espera', value: `${avgWaitTime.toFixed(2)} min` },
-            { title: 'Tiempo Promedio en el Sistema', value: `${avgSystemTime.toFixed(2)} min` },
-            { title: 'Longitud Promedio de la Cola', value: `${avgQueueLength.toFixed(2)} pacientes` }
-        ];
-        
-        stats.forEach(stat => {
-            const statCard = document.createElement('div');
-            statCard.className = 'stat-card';
-            statCard.innerHTML = `
-                <h3>${stat.title}</h3>
-                <div class="stat-value">${stat.value}</div>
+        if (servers === 1) {
+            const totalWaitingTime = data.reduce((sum, row) => sum + row.tiempoEspera, 0);
+            const totalServiceTime = data.reduce((sum, row) => sum + row.tiempoServicio, 0);
+            const totalSystemTime = data.reduce((sum, row) => sum + row.tiempoSistema, 0);
+            const totalIdleTime = data.reduce((sum, row) => sum + row.tiempoOcio, 0);
+            const lastFinishTime = data[data.length - 1].tiempoFinalizacion;
+            
+            const avgWaitingTime = totalWaitingTime / data.length;
+            const avgServiceTime = totalServiceTime / data.length;
+            const avgSystemTime = totalSystemTime / data.length;
+            const utilization = lastFinishTime > 0 ? ((lastFinishTime - totalIdleTime) / lastFinishTime * 100) : 0;
+            
+            statsHTML = `
+                <div class="stat-card">
+                    <h3>⏱️ Tiempo Promedio de Espera</h3>
+                    <div class="stat-value">${avgWaitingTime.toFixed(2)} min</div>
+                    <p class="stat-description">Tiempo promedio en cola</p>
+                </div>
+                <div class="stat-card">
+                    <h3>⚡ Tiempo Promedio de Servicio</h3>
+                    <div class="stat-value">${avgServiceTime.toFixed(2)} min</div>
+                    <p class="stat-description">Tiempo promedio de atención</p>
+                </div>
+                <div class="stat-card">
+                    <h3>🔄 Tiempo Promedio en Sistema</h3>
+                    <div class="stat-value">${avgSystemTime.toFixed(2)} min</div>
+                    <p class="stat-description">Tiempo total en el sistema</p>
+                </div>
+                <div class="stat-card">
+                    <h3>📊 Utilización</h3>
+                    <div class="stat-value">${utilization.toFixed(2)}%</div>
+                    <p class="stat-description">Porcentaje de uso del servidor</p>
+                </div>
             `;
-            statsContainer.appendChild(statCard);
-        });
+        } else {
+            const totalWaitingTime = data.reduce((sum, row) => sum + row.tiempoEspera1 + row.tiempoEspera2, 0);
+            const totalServiceTime = data.reduce((sum, row) => sum + row.tiempoServicio1 + row.tiempoServicio2, 0);
+            const totalSystemTime = data.reduce((sum, row) => sum + row.tiempoSistema, 0);
+            const totalIdleTime1 = data.reduce((sum, row) => sum + row.tiempoOcio1, 0);
+            const totalIdleTime2 = data.reduce((sum, row) => sum + row.tiempoOcio2, 0);
+            
+            const lastFinishTime = Math.max(
+                data[data.length - 1].tiempoFinalizacion1 || 0, 
+                data[data.length - 1].tiempoFinalizacion2 || 0
+            );
+            
+            const avgWaitingTime = totalWaitingTime / data.length;
+            const avgServiceTime = totalServiceTime / data.length;
+            const avgSystemTime = totalSystemTime / data.length;
+            const utilization1 = lastFinishTime > 0 ? ((lastFinishTime - totalIdleTime1) / lastFinishTime * 100) : 0;
+            const utilization2 = lastFinishTime > 0 ? ((lastFinishTime - totalIdleTime2) / lastFinishTime * 100) : 0;
+            const avgUtilization = (utilization1 + utilization2) / 2;
+            
+            statsHTML = `
+                <div class="stat-card">
+                    <h3>⏱️ Tiempo Promedio de Espera</h3>
+                    <div class="stat-value">${avgWaitingTime.toFixed(2)} min</div>
+                    <p class="stat-description">Tiempo promedio en cola</p>
+                </div>
+                <div class="stat-card">
+                    <h3>⚡ Tiempo Promedio de Servicio</h3>
+                    <div class="stat-value">${avgServiceTime.toFixed(2)} min</div>
+                    <p class="stat-description">Tiempo promedio de atención</p>
+                </div>
+                <div class="stat-card">
+                    <h3>🔄 Tiempo Promedio en Sistema</h3>
+                    <div class="stat-value">${avgSystemTime.toFixed(2)} min</div>
+                    <p class="stat-description">Tiempo total en el sistema</p>
+                </div>
+                <div class="stat-card">
+                    <h3>📊 Utilización Promedio</h3>
+                    <div class="stat-value">${avgUtilization.toFixed(2)}%</div>
+                    <p class="stat-description">Uso promedio de servidores</p>
+                </div>
+                <div class="stat-card">
+                    <h3>👤 Utilización Servidor 1</h3>
+                    <div class="stat-value">${utilization1.toFixed(2)}%</div>
+                    <p class="stat-description">Uso del servidor 1</p>
+                </div>
+                <div class="stat-card">
+                    <h3>👥 Utilización Servidor 2</h3>
+                    <div class="stat-value">${utilization2.toFixed(2)}%</div>
+                    <p class="stat-description">Uso del servidor 2</p>
+                </div>
+            `;
+        }
+        
+        statisticsContainer.innerHTML = statsHTML;
     }
 });
